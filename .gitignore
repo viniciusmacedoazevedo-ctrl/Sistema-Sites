@@ -5,6 +5,5 @@ out
 .env.local
 .env.test.local
 *.tsbuildinfo
-next-env.d.ts
 coverage
 /data

@@ -27,8 +27,8 @@ export class SimulationDiscoveryAdapter implements DiscoveryAdapter {
         city: query.city,
         state: query.state,
         country: query.country,
-        // Faixa 0000 não é atribuída a assinantes; ainda assim, simulação nunca envia mensagens.
-        phone: n % 5 === 0 ? undefined : `+55 11 9${String(n).padStart(4, "0")}-0000`,
+        // DDD 20 não existe no Brasil: números claramente fictícios. A simulação nunca envia mensagens.
+        phone: n % 5 === 0 ? undefined : `+55 20 9${String(n).padStart(4, "0")}-0000`,
         website:
           variant === 1 ? `https://exemplo-simulacao-${n}.invalid` : variant === 2 ? `http://site-quebrado-${n}.invalid` : variant === 3 ? `https://instagram.com/simulacao${n}` : undefined,
         sourceUrl: undefined,

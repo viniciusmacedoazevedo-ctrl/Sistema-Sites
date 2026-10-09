@@ -58,6 +58,26 @@ function pick<T>(arr: readonly T[], seed: string, salt = ""): T {
   return arr[n % arr.length];
 }
 
+const SERVICE_LINES = [
+  "Fale com a equipe para saber como funciona e solicitar um orçamento.",
+  "Detalhes, prazos e valores sob consulta.",
+  "Atendimento conforme a sua necessidade — consulte disponibilidade.",
+  "Tire suas dúvidas e combine o melhor horário.",
+  "Informações completas pelo telefone ou pessoalmente.",
+  "Consulte as condições diretamente com a empresa.",
+];
+
+const BENEFIT_LINES = [
+  "Um canal direto para tirar dúvidas e combinar o atendimento.",
+  "Informações organizadas para você decidir com tranquilidade.",
+  "Atendimento para quem está em {cidade} e arredores.",
+  "Contato simples, sem complicação.",
+];
+
+function offset(id: string) {
+  return parseInt(shortHash(id, 4), 16);
+}
+
 function where(f: CompanyFacts) {
   return f.neighborhood && f.city ? `${f.neighborhood}, ${f.city}` : (f.city ?? "sua região");
 }
@@ -68,7 +88,7 @@ export function templateContent(f: CompanyFacts): SiteContent {
   const loc = where(f);
   const heroTitles = [
     `${f.name}: ${niche.heroAngle}`,
-    `${niche.heroAngle.replace(/^\w/, (c) => c.toUpperCase())} em ${loc}`,
+    `${niche.heroAngle.replace(/^\w/, (c) => c.toUpperCase())}${f.city ? ` em ${f.city}` : ""}`,
     `Conheça a ${f.name}`,
   ];
   const subtitles = [
@@ -94,8 +114,8 @@ export function templateContent(f: CompanyFacts): SiteContent {
     heroTitle: pick(heroTitles, f.id, "h").slice(0, 90),
     heroSubtitle: pick(subtitles, f.id, "s"),
     about: pick(abouts, f.id, "a"),
-    services: niche.services.slice(0, 6).map((name) => ({ name, description: `Consulte a ${f.name} para saber como funciona e solicitar um orçamento.` })),
-    benefits: niche.benefits.slice(0, 4).map((title) => ({ title, description: `${title} para quem procura ${niche.label.toLowerCase()} em ${f.city ?? "sua cidade"}.` })),
+    services: niche.services.slice(0, 6).map((name, i) => ({ name, description: SERVICE_LINES[(i + offset(f.id)) % SERVICE_LINES.length] })),
+    benefits: niche.benefits.slice(0, 4).map((title, i) => ({ title, description: BENEFIT_LINES[(i + offset(f.id)) % BENEFIT_LINES.length].replace("{cidade}", f.city ?? "sua região") })),
     ctaText: pick(ctas, f.id, "c"),
     seoTitle: `${f.name} — ${niche.label} em ${f.city ?? "sua cidade"}`.slice(0, 70),
     seoDescription: `${f.name}: ${niche.heroAngle} em ${loc}. Veja serviços, localização e formas de contato.`.slice(0, 170).padEnd(50, "."),

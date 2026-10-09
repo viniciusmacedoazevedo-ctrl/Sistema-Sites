@@ -12,7 +12,9 @@
     "test": "vitest run",
     "db:migrate": "prisma migrate deploy",
     "db:dev": "prisma migrate dev",
-    "hash-password": "tsx scripts/hash-password.ts"
+    "hash-password": "tsx scripts/hash-password.ts",
+    "start:prod": "prisma migrate deploy && next start -p ${PORT:-3000}",
+    "postinstall": "prisma generate"
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^0.132.1",
@@ -40,7 +42,10 @@
     "prisma": "^6.19.3",
     "tailwindcss": "^3.4.17",
     "tsx": "^4.23.15",
-    "typescript": "^6.0.3",
+    "typescript": "^5.9.3",
     "vitest": "^3.2.7"
+  },
+  "engines": {
+    "node": ">=20"
   }
 }

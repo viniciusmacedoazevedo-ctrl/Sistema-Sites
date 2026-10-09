@@ -313,11 +313,8 @@ const generateContent: Handler = async (ctx) => {
 };
 
 // ---------------------------------------------------------------- 6. Criação do site
-const buildSite: Handler = async (ctx) => {
-  const c = await prisma.company.findUniqueOrThrow({ where: { id: ctx.job.companyId! }, include: { site: true } });
-  if (!c.site?.content) throw new PermanentError("Conteúdo do site ausente.");
-  const content = siteContentSchema.parse(c.site.content);
-  const { html, template } = renderSite({
+export function renderForCompany(c: Company, content: ReturnType<typeof siteContentSchema.parse>, settings: Settings) {
+  return renderSite({
     companyId: c.id,
     name: c.name,
     niche: c.niche,
@@ -330,11 +327,17 @@ const buildSite: Handler = async (ctx) => {
     mapsUrl: c.sourceUrl,
     attribution: c.attribution,
     content,
-    whatsappButton: ctx.settings.demoWhatsappButton,
-    senderName: ctx.settings.senderName,
-    senderCompany: ctx.settings.senderCompany,
+    whatsappButton: settings.demoWhatsappButton,
+    senderName: settings.senderName,
+    senderCompany: settings.senderCompany,
     removalUrl: optOutUrl(env.publicBaseUrl, c.id),
   });
+}
+
+const buildSite: Handler = async (ctx) => {
+  const c = await prisma.company.findUniqueOrThrow({ where: { id: ctx.job.companyId! }, include: { site: true } });
+  if (!c.site?.content) throw new PermanentError("Conteúdo do site ausente.");
+  const { html, template } = renderForCompany(c, siteContentSchema.parse(c.site.content), ctx.settings);
   // Não altera um site já publicado sem passar novamente por validação e publicação.
   await prisma.demoSite.update({ where: { id: c.site.id }, data: { html, template, status: c.site.status === "PUBLISHED" ? "PUBLISHED" : "GENERATED" } });
   await advanceCrm(c.id, "DEMO_GERADA");

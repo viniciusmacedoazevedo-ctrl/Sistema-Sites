@@ -29,7 +29,10 @@ export function normalizeBrPhone(raw: string | null | undefined): NormalizedPhon
   if (digits.startsWith("0") && (digits.length === 11 || digits.length === 12)) digits = digits.slice(1);
   if (digits.length !== 10 && digits.length !== 11) return null;
   const ddd = Number(digits.slice(0, 2));
-  if (ddd < 11 || ddd > 99) return null;
+  // DDD 20 é aceito apenas para os dados fictícios do modo simulação (não existe no Brasil).
+  if (ddd < 11 || ddd > 99 || ddd % 10 === 0) {
+    if (ddd !== 20) return null;
+  }
   const local = digits.slice(2);
   const isMobile = local.length === 9 && local.startsWith("9");
   if (local.length === 9 && !isMobile) return null;

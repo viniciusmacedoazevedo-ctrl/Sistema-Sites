@@ -83,3 +83,48 @@ export async function retryRun(runId: string, actor: string) {
   await audit("execucao.reprocessada", { actor, entity: "Run", entityId: runId, details: { jobs: count } });
   return count;
 }
+
+/** Re-renderiza o site com o conteúdo atual (sem IA, sem custo), valida e republica se estava publicado. */
+export async function rebuildSite(siteId: string, actor: string) {
+  const { renderForCompany } = await import("./pipeline");
+  const { siteContentSchema } = await import("./content/site-content");
+  const { validateSite } = await import("./sitegen/validate");
+  const { getSettings } = await import("@/lib/settings");
+  const settings = await getSettings();
+  const site = await prisma.demoSite.findUniqueOrThrow({ where: { id: siteId }, include: { company: true } });
+  const { html, template } = renderForCompany(site.company, siteContentSchema.parse(site.content), settings);
+  const report = await validateSite(html, { browser: settings.browserValidation && getDeps().browserValidation });
+  const wasPublished = site.status === "PUBLISHED";
+  await prisma.demoSite.update({ where: { id: siteId }, data: { html, template, validation: report as object, status: report.ok ? (wasPublished ? "PUBLISHED" : "VALIDATED") : "INVALID" } });
+  if (report.ok && wasPublished && site.publisher && site.publisher !== "internal") await publishSiteNow(siteId, actor);
+  await audit("site.regenerado", { actor, entity: "DemoSite", entityId: siteId, details: { ok: report.ok } });
+  return report;
+}
+
+/** Publica (ou republica) imediatamente uma demonstração validada de uma empresa real. */
+export async function publishSiteNow(siteId: string, actor: string) {
+  const { getSettings } = await import("@/lib/settings");
+  const settings = await getSettings();
+  const site = await prisma.demoSite.findUniqueOrThrow({ where: { id: siteId }, include: { company: true } });
+  if (site.company.isSimulated) throw new Error("Demonstrações de empresas fictícias (simulação) não podem ser publicadas.");
+  if (site.company.doNotContact) throw new Error("Empresa marcada como não contatar.");
+  if (!site.html || !["VALIDATED", "PUBLISHED", "UNPUBLISHED", "PUBLISH_FAILED"].includes(site.status)) throw new Error("O site precisa estar validado antes de publicar.");
+  const deps = getDeps();
+  const publisherId = settings.publisher;
+  const result = await deps.publisher(publisherId).publish({ slug: site.slug, html: site.html });
+  await prisma.demoSite.update({ where: { id: siteId }, data: { status: "PUBLISHED", publisher: publisherId, publicUrl: result.publicUrl, providerRef: result.providerRef, publishedAt: new Date(), unpublishedAt: null, error: null } });
+  const live = await deps.verifyUrl(result.publicUrl);
+  if (!live.ok) {
+    await prisma.demoSite.update({ where: { id: siteId }, data: { status: "PUBLISH_FAILED", error: `Link não confirmou publicação (${live.detail}).` } });
+    throw new Error(`Publicação não confirmada: ${live.detail}`);
+  }
+  await audit("site.publicado", { actor, entity: "DemoSite", entityId: siteId, details: { url: result.publicUrl } });
+  return result.publicUrl;
+}
+
+export async function deleteSite(siteId: string, actor: string) {
+  const site = await prisma.demoSite.findUniqueOrThrow({ where: { id: siteId } });
+  if (site.status === "PUBLISHED") await unpublishSite(siteId, "exclusão", actor);
+  await prisma.demoSite.delete({ where: { id: siteId } });
+  await audit("site.excluido", { actor, entity: "DemoSite", entityId: siteId });
+}
